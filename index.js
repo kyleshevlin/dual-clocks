@@ -56,20 +56,39 @@ function App() {
   );
 }
 
-function useTimer(initialState = 0) {
+function useTimer() {
   const intervalId = React.useRef();
-  const [time, setTime] = React.useState(0);
+  const [{ time }, setTime] = React.useState({
+    time: 0,
+    lastUpdate: null,
+  });
   const [timerState, setTimerState] = React.useState("STOPPED");
 
-  const start = React.useCallback(() => {
+  const startInterval = React.useCallback(() => {
+    setTime((s) => {
+      if (!s.lastUpdate) {
+        return { ...s, lastUpdate: Date.now() };
+      }
+
+      return s;
+    });
+
     intervalId.current = setInterval(() => {
-      setTime((s) => s + INTERVAL);
+      setTime((s) => {
+        const now = Date.now();
+        const delta = now - s.lastUpdate;
+
+        return {
+          time: s.time + delta,
+          lastUpdate: now,
+        };
+      });
     }, INTERVAL);
   }, []);
 
   React.useEffect(() => {
     if (timerState === "RUNNING" && !intervalId.current) {
-      start();
+      startInterval();
     }
 
     if (timerState === "STOPPED" && intervalId.current) {
@@ -78,7 +97,7 @@ function useTimer(initialState = 0) {
     }
 
     return () => clearInterval(intervalId.current);
-  }, [timerState]);
+  }, [startInterval, timerState]);
 
   const handlers = React.useMemo(
     () => ({
@@ -86,10 +105,11 @@ function useTimer(initialState = 0) {
         setTimerState("RUNNING");
       },
       stop: () => {
+        setTime((s) => ({ ...s, lastUpdate: null }));
         setTimerState("STOPPED");
       },
       reset: () => {
-        setTime(0);
+        setTime({ time: 0, lastUpdate: null });
 
         // If the timer is reset while running, we want to stop
         // the current interval and restart it so that it takes
@@ -97,11 +117,11 @@ function useTimer(initialState = 0) {
         // tick coming whenever the previous interval fires.
         if (timerState === "RUNNING" && intervalId.current) {
           clearInterval(intervalId.current);
-          start();
+          startInterval();
         }
       },
     }),
-    [start, timerState]
+    [startInterval, timerState]
   );
 
   return [time, timerState, handlers];
