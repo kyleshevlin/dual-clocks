@@ -31,8 +31,16 @@ function App() {
         Reset All
       </Button>
 
-      <div className="time">{formatTime(time1)}</div>
-      <div className="time">{formatTime(time2)}</div>
+      <Time
+        editDisabled={timerState1 === "RUNNING"}
+        time={time1}
+        update={handlers1.update}
+      />
+      <Time
+        editDisabled={timerState2 === "RUNNING"}
+        time={time2}
+        update={handlers2.update}
+      />
 
       <Button
         disabled={timerState1 === "RUNNING"}
@@ -108,6 +116,11 @@ function useTimer() {
         setTime((s) => ({ ...s, lastUpdate: null }));
         setTimerState("STOPPED");
       },
+      update: (value) => {
+        const ms = convertValueToMilliseconds(value);
+        setTime((s) => ({ time: ms, lastUpdate: null }));
+        setTimerState("STOPPED");
+      },
       reset: () => {
         setTime({ time: 0, lastUpdate: null });
 
@@ -153,6 +166,13 @@ function formatTime(ms) {
   return `${zeroPad(hours)}:${zeroPad(minutes)}:${zeroPad(seconds)}`;
 }
 
+function convertValueToMilliseconds(value) {
+  const [hours, minutes, seconds] = value
+    .split(":")
+    .map((x) => parseInt(x, 10));
+  return hours * HOUR + minutes * MINUTE + seconds * SECOND;
+}
+
 function Button({ children, disabled = false, onClick }) {
   return (
     <button
@@ -163,5 +183,132 @@ function Button({ children, disabled = false, onClick }) {
     >
       {children}
     </button>
+  );
+}
+
+function Time({ editDisabled, time, update }) {
+  const [state, setState] = React.useState("IDLE");
+
+  const handleUpdate = React.useCallback((hours, minutes, seconds) => {
+    update(`${hours}:${minutes}:${seconds}`);
+    setState("IDLE");
+  });
+
+  let inner;
+  if (state === "EDITING") {
+    inner = (
+      <TimeInput
+        time={formatTime(time)}
+        onUpdate={handleUpdate}
+        onCancel={() => {
+          setState("IDLE");
+        }}
+      />
+    );
+  }
+
+  if (state === "IDLE") {
+    inner = (
+      <>
+        <div
+          style={{
+            fontSize: "2rem",
+            textAlign: "center",
+            paddingLeft: "2rem",
+            paddingRight: "2rem",
+          }}
+        >
+          {formatTime(time)}
+        </div>
+        <Button
+          disabled={editDisabled}
+          onClick={() => {
+            setState("EDITING");
+          }}
+        >
+          Edit
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", gap: "1rem", padding: "0 1rem" }}>
+      {inner}
+    </div>
+  );
+}
+
+function TimeInput({ onCancel, onUpdate, time }) {
+  const [hours, minutes, seconds] = time.split(":");
+  const [val1, setVal1] = React.useState(hours);
+  const [val2, setVal2] = React.useState(minutes);
+  const [val3, setVal3] = React.useState(seconds);
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <TimeSingleInput
+          onChange={(e) => {
+            setVal1(e.target.value);
+          }}
+          value={val1}
+        />
+        <TimeInputSpacer />
+        <TimeSingleInput
+          onChange={(e) => {
+            setVal2(e.target.value);
+          }}
+          value={val2}
+        />
+        <TimeInputSpacer />
+        <TimeSingleInput
+          onChange={(e) => {
+            setVal3(e.target.value);
+          }}
+          value={val3}
+        />
+      </div>
+      <Button
+        onClick={() => {
+          onUpdate(val1, val2, val3);
+        }}
+      >
+        Update
+      </Button>
+      <Button onClick={onCancel}>Cancel</Button>
+    </>
+  );
+}
+
+function TimeSingleInput({ value, onChange }) {
+  return (
+    <input
+      type="text"
+      pattern="/^\d+$/"
+      value={value}
+      onChange={onChange}
+      style={{
+        padding: ".25rem",
+        fontSize: "1rem",
+        flexShrink: 1,
+        width: "100%",
+        textAlign: "center",
+      }}
+    />
+  );
+}
+
+function TimeInputSpacer() {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        marginLeft: ".25rem",
+        marginRight: ".25rem",
+      }}
+    >
+      :
+    </span>
   );
 }
